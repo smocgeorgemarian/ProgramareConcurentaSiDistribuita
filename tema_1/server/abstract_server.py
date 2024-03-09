@@ -1,7 +1,7 @@
 from socket import socket, AF_INET
 
 from utils.exc_helpers import handle_exceptions
-from utils.general import DOWNLOADS_DIR, HEADERS_SIZE, FINISHED_TRANSMISSION_MSG
+from utils.general import DOWNLOADS_DIR
 from utils.stats_helpers import stats_after_run
 
 
@@ -20,7 +20,7 @@ class Server:
         self.socket.bind((self.host, self.port))
         self.socket.listen()
 
-    def _receive_file(self, connection, filename, file_size, packages_no):
+    def _receive_file(self, connection):
         raise NotImplementedError("Subclass must implement abstract method")
 
     @stats_after_run
@@ -34,12 +34,7 @@ class Server:
 
         with connection:
             while True:
-                headers = connection.recv(HEADERS_SIZE).decode()
-                if headers == FINISHED_TRANSMISSION_MSG:
+                bytes_no, msgs_no, should_continue = self._receive_file(connection)
+                if not should_continue:
                     break
-                self.logger.info(f"Headers received:\n{headers}")
-                filename, file_size, packages_no = headers.split("\n")
-                file_size, packages_no = int(file_size), int(packages_no)
-
-                self._receive_file(connection, filename, file_size, packages_no)
 

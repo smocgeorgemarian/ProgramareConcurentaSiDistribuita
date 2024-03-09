@@ -10,5 +10,6 @@ class Parser:
         parser.add_argument("--host", type=str, default="127.0.0.1", help="Server IP address")
         parser.add_argument("--port", type=int, default=8081, help="Server port number")
         parser.add_argument("--package_size", type=int, default=8192, help="Size of a packet sent via network")
-        parser.add_argument("--tcp", type=bool, default=True, help="Use tcp for data transfer")
+        parser.add_argument("--tcp", type=bool, default=False, help="Use tcp for data transfer")
+        parser.add_argument("--udp", type=bool, default=True, help="Use tcp for data transfer")
         return parser.parse_args()

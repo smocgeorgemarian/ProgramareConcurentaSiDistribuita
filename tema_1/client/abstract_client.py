@@ -15,9 +15,8 @@ class Client:
         self.package_size = package_size
         self.samples_dir = samples_dir
 
-    @handle_exceptions_with_retries
     def _connect_wrapper(self):
-        self.socket.connect((self.host, self.port))
+        raise NotImplementedError("Subclass must implement abstract method")
 
     def _get_packages_no(self, file_fullpath):
         return int((os.stat(file_fullpath).st_size + self.package_size - 1) // self.package_size)
@@ -26,7 +25,7 @@ class Client:
         for filename in os.listdir(self.samples_dir):
             yield filename, os.path.join(self.samples_dir, filename)
 
-    def _send_file(self, fd, headers, packages_no):
+    def _send_file(self, fd, headers, packages_no, **kwargs):
         raise NotImplementedError("Subclass must implement abstract method")
 
     def _send_finished_transmission(self):
@@ -38,14 +37,12 @@ class Client:
         if result.is_fail:
             return result
 
-        for filename, file_fullpath in self._get_samples():
+        for file_index, (filename, file_fullpath) in enumerate(self._get_samples()):
             file_size = os.stat(file_fullpath).st_size
             packages_no = int((file_size + self.package_size - 1) // self.package_size)
-            headers = f"{filename}\n{file_size}\n{packages_no}".encode()
-            self.logger.info(f"Headers: {headers}")
 
             with open(file_fullpath, "rb") as fd:
-                self._send_file(fd, headers, packages_no)
+                self._send_file(fd, packages_no, **{"filename": filename, "file_index": file_size, "file_size": file_size})
 
         # Ended work
         self._send_finished_transmission()
