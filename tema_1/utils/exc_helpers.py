@@ -1,11 +1,7 @@
 import functools
 import inspect
-import logging
 import time
 import traceback
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("handle_exceptions")
 
 
 class Result:
@@ -39,9 +35,9 @@ def handle_exceptions(func):
             return Result(data=func(self, *args, **kwargs), is_success=True)
         except Exception:
             trace = traceback.format_exc()
-            func_name = inspect.currentframe().f_code.co_name
-            err_msg = f"Something wrong happened in function {func_name}\n after running {time.perf_counter() - start_time}:{trace}"
-            logger.error(err_msg)
+            func_name = inspect.currentframe().f_back.f_code.co_name
+            err_msg = f"Something wrong happened in function {func_name} after running {time.perf_counter() - start_time}:\n{trace}"
+            self.logger.error(err_msg)
             return Result(is_success=False, err_msg=err_msg)
 
     return wrapper
@@ -57,10 +53,11 @@ def handle_exceptions_with_retries(func):
                 return Result(data=func(self, *args, **kwargs), is_success=True)
             except Exception:
                 trace = traceback.format_exc()
-                func_name = inspect.currentframe().f_code.co_name
-                err_msg = f"Something wrong happened in function {func_name}\n after running {time.perf_counter() - start_time}:{trace}"
+                func_name = inspect.currentframe().f_back.f_code.co_name
+                err_msg = f"Something wrong happened in function {func_name} after running {time.perf_counter() - start_time}:\n{trace}"
                 last_error = err_msg
 
+        self.logger.error(err_msg)
         return Result(is_success=False, err_msg=last_error)
 
     return wrapper

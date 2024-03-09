@@ -1,8 +1,9 @@
 import logging
-import os
 from socket import SOCK_STREAM
 
 from client.abstract_client import Client
+from utils.general import FINISHED_TRANSMISSION_MSG
+from utils.stats_helpers import stats_gatherer
 
 
 class TcpClient(Client):
@@ -11,24 +12,22 @@ class TcpClient(Client):
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(TcpClient.__name__)
 
-    def _send_file(self, filename, file_fullpath):
-        file_size = os.stat(file_fullpath).st_size
-        packages_no = int((file_size + self.package_size - 1) // self.package_size)
-        headers = f"{filename}{file_size}{packages_no}".encode()
-        self.logger.info(f"Headers: {headers}")
+    @stats_gatherer
+    def _send_finished_transmission(self):
+        self.socket.send(FINISHED_TRANSMISSION_MSG)
 
-        for try_index in range(100):
-            self.socket.send(headers)
+    @stats_gatherer
+    def _send_file(self, fd, headers, packages_no):
+        bytes_no = 0
+        msgs_no = 0
 
-        with open(file_fullpath, "rb") as fd:
-            for package_index in range(packages_no):
-                data = fd.read(self.package_size)
-                self.socket.send(data)
+        self.socket.send(headers)
+        bytes_no += len(headers)
+        msgs_no = 1
+        for package_index in range(packages_no):
+            data = fd.read(self.package_size)
+            self.socket.send(data)
 
-    def send(self):
-        result = self._connect_wrapper()
-        if result.is_fail:
-            return result
-
-        for filename, file_fullpath in self._get_samples():
-            self._send_file(filename, file_fullpath)
+            bytes_no += len(headers)
+            msgs_no += 1
+        return bytes_no, msgs_no
