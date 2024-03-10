@@ -11,8 +11,8 @@ def stats_gatherer(func):
             setattr(self, "stats", dict())
         self.stats["bytes_no"] = self.stats.get("bytes_no", 0) + bytes_no
         self.stats["msgs_no"] = self.stats.get("msgs_no", 0) + msgs_no
-        self.stats["transmission_time"] = self.stats.get("msgs_no", float(0)) + time.perf_counter() - start_time
-        self.logger.info(f"Current stats:\n{self.stats}")
+        self.stats["transmission_time"] = self.stats.get("transmission_time", float(0)) + time.perf_counter() - start_time
+        # self.logger.info(f"Current stats:\n{self.stats}")
         return bytes_no, msgs_no, should_continue
 
     return wrapper

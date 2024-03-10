@@ -1,5 +1,6 @@
 import logging
 import os.path
+import time
 
 from _socket import SOCK_DGRAM
 
@@ -32,20 +33,20 @@ class UdpServer(Server):
         self.socket.settimeout(10)
 
     @handle_exceptions
-    @stats_gatherer
     def _receive_data(self):
         bytes_no = 0
         msgs_no = 0
 
         should_continue = True
         while True:
+            start = time.time()
             data, self.client_address = self.socket.recvfrom(self.udp_packet_size)
+            self.logger.info(f"Deltaaaa: {time.time() - start}")
             bytes_no += len(data)
             msgs_no += 1
 
             response = UdpResponse(data)
             if response.crc_problem:
-                self.logger.info("Probleme")
                 if self.stop_and_wait:
                     self.socket.sendto(AckType.ERROR.value.to_bytes(4, "little"), self.client_address)
                     continue
@@ -57,8 +58,8 @@ class UdpServer(Server):
             elif response.type == DatagramType.CHUNK:
                 if response.file_index not in self.file_index_to_chunks:
                     self.file_index_to_chunks[response.file_index] = []
-                self.file_index_to_no_chunks[response.file_index] = response.packages_no
-                self.file_index_to_chunks[response.file_index].append((response.package_index, response.data))
+                # self.file_index_to_no_chunks[response.file_index] = response.packages_no
+                # self.file_index_to_chunks[response.file_index].append((response.package_index, response.data))
 
             elif response.type == DatagramType.END_MESSAGE:
                 should_continue = False
@@ -77,12 +78,18 @@ class UdpServer(Server):
         for file_index, chunks in self.file_index_to_chunks.items():
             chunks = sorted(chunks, key=lambda x: x[0])
             tmp_files_to_chunks[file_index] = chunks
+
+        total = 0
+        received = 0
         for file_index in tmp_files_to_chunks:
             if len(tmp_files_to_chunks[file_index]) != self.file_index_to_no_chunks[file_index]:
-                self.logger.warning(f"From {self.file_index_to_no_chunks[file_index]} received {len(tmp_files_to_chunks[file_index])}")
+                received += len(tmp_files_to_chunks[file_index])
+                total += self.file_index_to_no_chunks[file_index]
+            else:
+                total += len(tmp_files_to_chunks[file_index])
+                received += len(tmp_files_to_chunks[file_index])
             if file_index not in self.file_index_to_filename:
                 default_name = f"default_name_{file_index}"
-                self.logger.info(f"Using custom name: {default_name}")
                 filename = default_name
             else:
                 filename = self.file_index_to_filename[file_index]
@@ -90,8 +97,13 @@ class UdpServer(Server):
             with open(os.path.join(DOWNLOADS_DIR, filename), "wb+") as fd:
                 for chunk in tmp_files_to_chunks[file_index]:
                     fd.write(chunk[1].encode())
+        if total:
+            self.stats = dict()
+            self.stats["found_procent"] = received / total * 100
+        else:
+            self.stats["found_procent"] = 0
 
-    @stats_after_run
+    # @stats_after_run
     def receive(self):
         result = self._bind_wrapper()
         if result.is_fail:
@@ -99,14 +111,18 @@ class UdpServer(Server):
 
         self.logger.info(f"Listening at: {self.host}, port: {self.port}")
 
+        start = None
         while True:
             # no ack case
             result = self._receive_data()
+            if not start:
+                start = time.time()
             if result.is_fail:
                 break
             if result.data:
                 bytes_no, msgs_no, should_continue = result.data
                 if not should_continue:
                     break
-
+        end = time.time()
+        self.logger.info(f"Delta time: {end - start}")
         self.split_data_per_file()

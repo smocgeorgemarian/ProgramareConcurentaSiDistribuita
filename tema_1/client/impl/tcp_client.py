@@ -49,6 +49,7 @@ class TcpClient(Client):
         headers = f'{kwargs["filename"]}\n{kwargs["file_size"]}\n{packages_no}'
         headers = headers.ljust(HEADERS_SIZE)
         headers = headers.encode()
+        # self.logger.info(f"Headers size: {len(headers)}")
         while True:
             self.socket.send(headers)
             bytes_no += len(headers)
@@ -65,6 +66,7 @@ class TcpClient(Client):
         for package_index in range(packages_no):
             data = fd.read(self.package_size)
             while True:
+                # self.logger.info(f"Data len: {len(data)}")
                 self.socket.send(data)
 
                 bytes_no += len(data)
@@ -79,5 +81,5 @@ class TcpClient(Client):
                             continue
                 break
 
-        self.logger.info(f"Sent file: {kwargs['filename']}")
+        # self.logger.info(f"Sent file: {kwargs['filename']}")
         return bytes_no, msgs_no, True

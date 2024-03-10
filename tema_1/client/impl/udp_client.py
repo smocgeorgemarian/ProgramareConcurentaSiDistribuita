@@ -44,7 +44,7 @@ class UdpClient(Client):
     def _build_package(self, data, file_index, package_index, file_size):
         packages_no = int((file_size + self.package_size - 1) // self.package_size)
         headers = f'{DatagramType.CHUNK.value}\n{file_index}\n{file_size}\n{packages_no}\n{package_index}'
-        merged_data = f'{headers}\n{data}'.encode()
+        merged_data = f'{headers}\n'.encode() + data
 
         crc = checksum(merged_data) % (2 ** 32)
         merged_data = merged_data + crc.to_bytes(length=4, byteorder="little", signed=False)
