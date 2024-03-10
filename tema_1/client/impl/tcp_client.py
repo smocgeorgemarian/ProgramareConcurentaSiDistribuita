@@ -5,6 +5,7 @@ from client.abstract_client import Client
 from utils.exc_helpers import handle_exceptions
 from utils.general import FINISHED_TRANSMISSION_MSG, HEADERS_SIZE
 from utils.stats_helpers import stats_gatherer
+from utils.udp_helpers import AckType
 
 
 class TcpClient(Client):
@@ -31,10 +32,12 @@ class TcpClient(Client):
 
             if self.stop_and_wait:
                 ack = self.socket.recv(4)
-                print("Send file:", ack)
-                break
-            else:
-                break
+                ack = int.from_bytes(ack, byteorder="little", signed=False)
+
+                if self.stop_and_wait:
+                    if ack == AckType.ERROR:
+                        continue
+            break
 
         return bytes_no, msgs_no, False
 
@@ -43,7 +46,7 @@ class TcpClient(Client):
         bytes_no = 0
         msgs_no = 0
 
-        headers = f'{kwargs["filename"] }\n{kwargs["file_size"]}\n{packages_no}'
+        headers = f'{kwargs["filename"]}\n{kwargs["file_size"]}\n{packages_no}'
         headers = headers.ljust(HEADERS_SIZE)
         headers = headers.encode()
         while True:
@@ -52,10 +55,12 @@ class TcpClient(Client):
             msgs_no += 1
             if self.stop_and_wait:
                 ack = self.socket.recv(4)
-                print(ack)
-                break
-            else:
-                break
+                ack = int.from_bytes(ack, byteorder="little", signed=False)
+
+                if self.stop_and_wait:
+                    if ack == AckType.ERROR:
+                        continue
+            break
 
         for package_index in range(packages_no):
             data = fd.read(self.package_size)
@@ -67,9 +72,12 @@ class TcpClient(Client):
 
                 if self.stop_and_wait:
                     ack = self.socket.recv(4)
-                    break
-                else:
-                    break
+                    ack = int.from_bytes(ack, byteorder="little", signed=False)
+
+                    if self.stop_and_wait:
+                        if ack == AckType.ERROR:
+                            continue
+                break
 
         self.logger.info(f"Sent file: {kwargs['filename']}")
         return bytes_no, msgs_no, True

@@ -1,7 +1,7 @@
 import os
+import zlib
 from socket import socket, AF_INET
 
-from utils.exc_helpers import handle_exceptions_with_retries
 from utils.general import SAMPLES_DIR
 from utils.stats_helpers import stats_after_run
 

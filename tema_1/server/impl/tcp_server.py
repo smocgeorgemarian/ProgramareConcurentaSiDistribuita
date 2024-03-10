@@ -25,23 +25,22 @@ class TcpServer(Server):
             self.logger.info(f"headers: {headers}")
             bytes_no += len(headers)
             msgs_no += 1
+
             if self.stop_and_wait:
+                if not headers:
+                    connection.send(AckType.ERROR.value.to_bytes(4, "little"))
+                    continue
                 connection.send(AckType.OK.value.to_bytes(4, "little"))
-                print("Done")
-                break
-            else:
-                break
+            break
 
         if headers_decoded == FINISHED_TRANSMISSION_MSG:
             return len(headers_decoded), 1, False
 
-        self.logger.info(f"Headers received:\n{headers_decoded}")
         filename, file_size, packages_no = headers_decoded.split("\n")
         file_size, packages_no = int(file_size), int(packages_no.rstrip())
 
         packages = []
         for package_index in range(packages_no):
-            print(f"Package_index: {package_index}")
             while True:
                 if package_index != packages_no - 1:
                     data = connection.recv(self.package_size)
@@ -52,10 +51,11 @@ class TcpServer(Server):
                 msgs_no += 1
 
                 if self.stop_and_wait:
+                    if not data:
+                        connection.send(AckType.ERROR.value.to_bytes(4, "little"))
+                        continue
                     connection.send(AckType.OK.value.to_bytes(4, "little"))
-                    break
-                else:
-                    break
+                break
 
             # self.logger.info(f"Data size received: {len(data)}")
         return bytes_no, msgs_no, True

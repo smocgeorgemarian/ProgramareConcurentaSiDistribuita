@@ -44,6 +44,13 @@ class UdpServer(Server):
             msgs_no += 1
 
             response = UdpResponse(data)
+            if response.crc_problem:
+                self.logger.info("Probleme")
+                if self.stop_and_wait:
+                    self.socket.sendto(AckType.ERROR.value.to_bytes(4, "little"), self.client_address)
+                    continue
+                break
+
             if response.type == DatagramType.INITIAL_HEADER:
                 self.file_index_to_filename[response.file_index] = response.filename
 
@@ -58,9 +65,7 @@ class UdpServer(Server):
 
             if self.stop_and_wait:
                 self.socket.sendto(AckType.OK.value.to_bytes(4, "little"), self.client_address)
-                break
-            else:
-                break
+            break
 
         return bytes_no, msgs_no, should_continue
 
