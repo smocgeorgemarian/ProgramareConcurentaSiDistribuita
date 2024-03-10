@@ -9,12 +9,10 @@ from utils.udp_helpers import DatagramType
 
 
 class UdpClient(Client):
-    def __init__(self, host, port, package_size):
-        super().__init__(host, port, package_size, SOCK_DGRAM)
+    def __init__(self, host, port, package_size, stop_and_wait):
+        super().__init__(host, port, package_size, SOCK_DGRAM, stop_and_wait)
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(UdpClient.__name__)
-
-
 
     def _connect_wrapper(self):
         return Result(data=None, is_success=True)
@@ -44,14 +42,29 @@ class UdpClient(Client):
         msgs_no = 0
 
         headers = f'{DatagramType.INITIAL_HEADER.value}\n{kwargs["filename"]}\n{kwargs["file_index"]}\n{kwargs["file_size"]}'.encode()
-        self.socket.sendto(headers, (self.host, self.port))
-        bytes_no += len(headers)
-        msgs_no += 1
+        while True:
+            self.socket.sendto(headers, (self.host, self.port))
+            bytes_no += len(headers)
+            msgs_no += 1
+
+            if self.stop_and_wait:
+                ack = self.socket.recv(4)
+                break
+            else:
+                break
 
         for package_index in range(packages_no):
             data = fd.read(self.package_size)
             package = self._build_package(data, kwargs["file_index"], package_index, kwargs["file_size"])
-            self.socket.sendto(package, (self.host, self.port))
-            bytes_no += len(data)
-            msgs_no += 1
+            while True:
+                self.socket.sendto(package, (self.host, self.port))
+                bytes_no += len(data)
+                msgs_no += 1
+
+                if self.stop_and_wait:
+                    ack = self.socket.recv(4)
+                    break
+                else:
+                    break
+
         return bytes_no, msgs_no, True

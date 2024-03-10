@@ -6,7 +6,7 @@ from utils.stats_helpers import stats_after_run
 
 
 class Server:
-    def __init__(self, host, port, package_size, mode, store=True, samples_dir=DOWNLOADS_DIR):
+    def __init__(self, host, port, package_size, mode, stop_and_wait, store=True, samples_dir=DOWNLOADS_DIR):
         self.host = host
         self.port = port
         self.socket = socket(AF_INET, mode)
@@ -14,6 +14,7 @@ class Server:
         self.package_size = package_size
         self.store = store
         self.samples_dir = samples_dir
+        self.stop_and_wait = stop_and_wait
 
     @handle_exceptions
     def _bind_wrapper(self):

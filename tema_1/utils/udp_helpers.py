@@ -7,6 +7,11 @@ class DatagramType(Enum):
     END_MESSAGE = 3
 
 
+class AckType(Enum):
+    OK = 0
+    ERROR = 1
+
+
 class UdpResponse:
     def __init__(self, raw_response):
         decoded: str = raw_response.decode()
@@ -15,14 +20,13 @@ class UdpResponse:
         self.type = DatagramType(type)
         if self.type == DatagramType.INITIAL_HEADER:
             self.filename = splitted_data[1]
-            self.file_index = splitted_data[2]
-            self.file_size = splitted_data[3]
+            self.file_index = int(splitted_data[2])
+            self.file_size = int(splitted_data[3])
         elif self.type == DatagramType.CHUNK:
-            self.file_index = splitted_data[1]
-            self.file_size = splitted_data[2]
-            self.packages_no = splitted_data[3]
-            self.package_index = splitted_data[4]
+            self.file_index = int(splitted_data[1])
+            self.file_size = int(splitted_data[2])
+            self.packages_no = int(splitted_data[3])
+            self.package_index = int(splitted_data[4])
             self.data = splitted_data[5]
         else:
             self.data = splitted_data[1]
-

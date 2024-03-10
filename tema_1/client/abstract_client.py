@@ -7,13 +7,14 @@ from utils.stats_helpers import stats_after_run
 
 
 class Client:
-    def __init__(self, host, port, package_size, mode, samples_dir=SAMPLES_DIR):
+    def __init__(self, host, port, package_size, mode, stop_and_wait, samples_dir=SAMPLES_DIR):
         self.host = host
         self.port = port
         self.socket = socket(AF_INET, mode)
 
         self.package_size = package_size
         self.samples_dir = samples_dir
+        self.stop_and_wait = stop_and_wait
 
     def _connect_wrapper(self):
         raise NotImplementedError("Subclass must implement abstract method")
@@ -42,7 +43,7 @@ class Client:
             packages_no = int((file_size + self.package_size - 1) // self.package_size)
 
             with open(file_fullpath, "rb") as fd:
-                self._send_file(fd, packages_no, **{"filename": filename, "file_index": file_size, "file_size": file_size})
+                self._send_file(fd, packages_no, **{"filename": filename, "file_index": file_index, "file_size": file_size})
 
         # Ended work
         self._send_finished_transmission()

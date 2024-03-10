@@ -6,8 +6,8 @@ class ServerFactory:
     @staticmethod
     def get_server(args):
         if args.tcp:
-            return TcpServer(args.host, args.port, args.package_size)
+            return TcpServer(args.host, args.port, args.package_size, args.stop_and_wait)
         if args.udp:
-            return UdpServer(args.host, args.port, args.package_size)
+            return UdpServer(args.host, args.port, args.package_size, args.stop_and_wait)
 
         raise Exception("Unknown type")
