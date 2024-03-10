@@ -26,16 +26,6 @@ class Server:
 
     @stats_after_run
     def receive(self):
-        result = self._bind_wrapper()
-        if result.is_fail:
-            return result
+        raise NotImplementedError("Subclass must implement abstract method")
 
-        self.logger.info(f"Listening at: {self.host}, port: {self.port}")
-        connection, client_address = self.socket.accept()
-
-        with connection:
-            while True:
-                bytes_no, msgs_no, should_continue = self._receive_file(connection)
-                if not should_continue:
-                    break
 

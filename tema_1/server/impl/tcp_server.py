@@ -3,7 +3,7 @@ from socket import SOCK_STREAM
 
 from server.abstract_server import Server
 from utils.general import HEADERS_SIZE, FINISHED_TRANSMISSION_MSG
-from utils.stats_helpers import stats_gatherer
+from utils.stats_helpers import stats_gatherer, stats_after_run
 from utils.udp_helpers import AckType
 
 
@@ -59,3 +59,21 @@ class TcpServer(Server):
 
             # self.logger.info(f"Data size received: {len(data)}")
         return bytes_no, msgs_no, True
+
+    @stats_after_run
+    def receive(self):
+        result = self._bind_wrapper()
+        if result.is_fail:
+            return result
+
+        self.logger.info(f"Listening at: {self.host}, port: {self.port}")
+        connection, client_address = self.socket.accept()
+
+        with connection:
+            while True:
+                bytes_no, msgs_no, should_continue = self._receive_file(connection)
+                if not should_continue:
+                    break
+
+        self.socket.close()
+
