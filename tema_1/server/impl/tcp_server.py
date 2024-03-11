@@ -1,9 +1,10 @@
 import logging
+import os.path
 import time
 from socket import SOCK_STREAM
 
 from server.abstract_server import Server
-from utils.general import HEADERS_SIZE, FINISHED_TRANSMISSION_MSG
+from utils.general import HEADERS_SIZE, FINISHED_TRANSMISSION_MSG, DOWNLOADS_DIR
 from utils.stats_helpers import stats_gatherer, stats_after_run
 from utils.udp_helpers import AckType
 
@@ -45,6 +46,9 @@ class TcpServer(Server):
         file_size, packages_no = int(file_size), int(packages_no.rstrip())
 
         packages = []
+
+        if self.store:
+            fd = open(os.path.join(DOWNLOADS_DIR, filename), "wb")
         for package_index in range(packages_no):
             while True:
                 if package_index != packages_no - 1:
@@ -69,6 +73,10 @@ class TcpServer(Server):
                         continue
                     connection.send(AckType.OK.value.to_bytes(4, "little"))
                 break
+            if self.store:
+                fd.write(data)
+        if self.store:
+            fd.close()
             # self.logger.info(f"Data size received: {len(data)}")
         return bytes_no, msgs_no, True
 
