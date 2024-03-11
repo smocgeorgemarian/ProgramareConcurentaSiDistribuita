@@ -15,6 +15,9 @@ class Server:
         self.store = store
         self.samples_dir = samples_dir
         self.stop_and_wait = stop_and_wait
+        self.bytes_no = 0
+        self.msgs_no = 0
+        self.decrease_by_timeout = False
 
     @handle_exceptions
     def _bind_wrapper(self):

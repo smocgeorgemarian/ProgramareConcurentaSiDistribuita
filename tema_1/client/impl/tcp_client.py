@@ -13,22 +13,19 @@ class TcpClient(Client):
         super().__init__(host, port, package_size, SOCK_STREAM, stop_and_wait)
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(TcpClient.__name__)
+        self.protocol = "tcp"
 
     @handle_exceptions
     def _connect_wrapper(self):
         self.socket.connect((self.host, self.port))
 
-    @stats_gatherer
     def _send_finished_transmission(self):
-        bytes_no = 0
-        msgs_no = 0
-
         while True:
             finished_transmission_encoded = FINISHED_TRANSMISSION_MSG.encode()
             self.socket.send(finished_transmission_encoded)
 
-            bytes_no += len(finished_transmission_encoded)
-            msgs_no += 1
+            self.bytes_no += len(finished_transmission_encoded)
+            self.msgs_no += 1
 
             if self.stop_and_wait:
                 ack = self.socket.recv(4)
@@ -39,21 +36,17 @@ class TcpClient(Client):
                         continue
             break
 
-        return bytes_no, msgs_no, False
+        return False
 
-    @stats_gatherer
     def _send_file(self, fd, packages_no, **kwargs):
-        bytes_no = 0
-        msgs_no = 0
-
         headers = f'{kwargs["filename"]}\n{kwargs["file_size"]}\n{packages_no}'
         headers = headers.ljust(HEADERS_SIZE)
         headers = headers.encode()
         # self.logger.info(f"Headers size: {len(headers)}")
         while True:
             self.socket.send(headers)
-            bytes_no += len(headers)
-            msgs_no += 1
+            self.bytes_no += len(headers)
+            self.msgs_no += 1
             if self.stop_and_wait:
                 ack = self.socket.recv(4)
                 ack = int.from_bytes(ack, byteorder="little", signed=False)
@@ -69,8 +62,8 @@ class TcpClient(Client):
                 # self.logger.info(f"Data len: {len(data)}")
                 self.socket.send(data)
 
-                bytes_no += len(data)
-                msgs_no += 1
+                self.bytes_no += len(data)
+                self.msgs_no += 1
 
                 if self.stop_and_wait:
                     ack = self.socket.recv(4)
@@ -82,4 +75,4 @@ class TcpClient(Client):
                 break
 
         # self.logger.info(f"Sent file: {kwargs['filename']}")
-        return bytes_no, msgs_no, True
+        return True

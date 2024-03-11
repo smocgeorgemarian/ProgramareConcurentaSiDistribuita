@@ -1,3 +1,4 @@
+import json
 import logging
 import os.path
 import time
@@ -6,8 +7,7 @@ from _socket import SOCK_DGRAM
 
 from server.abstract_server import Server
 from utils.exc_helpers import handle_exceptions
-from utils.general import DOWNLOADS_DIR, FINISHED_TRANSMISSION_MSG
-from utils.stats_helpers import stats_gatherer, stats_after_run
+from utils.general import DOWNLOADS_DIR
 from utils.udp_helpers import UdpResponse, DatagramType, AckType
 
 
@@ -18,14 +18,12 @@ class UdpServer(Server):
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(UdpServer.__name__)
         self.udp_packet_size = package_size + 12 * 4
+        self.logger.info("Test: {}".format(self.udp_packet_size))
         self.file_index_to_chunks = {}
         self.file_index_to_filename = {}
         self.file_index_to_no_chunks = {}
+        self.file_index_to_actual_count = {}
         self.client_address = None
-
-    @stats_gatherer
-    def _receive_file(self, connection):
-        pass
 
     @handle_exceptions
     def _bind_wrapper(self):
@@ -34,18 +32,14 @@ class UdpServer(Server):
 
     @handle_exceptions
     def _receive_data(self):
-        bytes_no = 0
-        msgs_no = 0
-
         should_continue = True
         while True:
-            start = time.time()
             data, self.client_address = self.socket.recvfrom(self.udp_packet_size)
-            self.logger.info(f"Deltaaaa: {time.time() - start}")
-            bytes_no += len(data)
-            msgs_no += 1
+            self.bytes_no += len(data)
+            self.msgs_no += 1
 
             response = UdpResponse(data)
+            self.logger.info(data[:-4].decode())
             if response.crc_problem:
                 if self.stop_and_wait:
                     self.socket.sendto(AckType.ERROR.value.to_bytes(4, "little"), self.client_address)
@@ -53,14 +47,17 @@ class UdpServer(Server):
                 break
 
             if response.type == DatagramType.INITIAL_HEADER:
-                self.file_index_to_filename[response.file_index] = response.filename
+                if self.store:
+                    self.file_index_to_filename[response.file_index] = response.filename
 
             elif response.type == DatagramType.CHUNK:
+                self.file_index_to_no_chunks[response.file_index] = response.packages_no
+                self.file_index_to_actual_count[response.file_index] = self.file_index_to_actual_count.get(response.file_index, 0) + 1
+
                 if self.store:
                     if response.file_index not in self.file_index_to_chunks:
                         self.file_index_to_chunks[response.file_index] = []
-                        self.file_index_to_no_chunks[response.file_index] = response.packages_no
-                        self.file_index_to_chunks[response.file_index].append((response.package_index, response.data))
+                    self.file_index_to_chunks[response.file_index].append((response.package_index, response.data))
 
             elif response.type == DatagramType.END_MESSAGE:
                 should_continue = False
@@ -69,7 +66,7 @@ class UdpServer(Server):
                 self.socket.sendto(AckType.OK.value.to_bytes(4, "little"), self.client_address)
             break
 
-        return bytes_no, msgs_no, should_continue
+        return should_continue
 
     def split_data_per_file(self):
         self.logger.info(f"Received name for: {len(self.file_index_to_filename)} files")
@@ -80,17 +77,10 @@ class UdpServer(Server):
             chunks = sorted(chunks, key=lambda x: x[0])
             tmp_files_to_chunks[file_index] = chunks
 
-        total = 0
-        received = 0
         for file_index in tmp_files_to_chunks:
             if file_index not in self.file_index_to_no_chunks:
                 continue
-            if len(tmp_files_to_chunks[file_index]) != self.file_index_to_no_chunks[file_index]:
-                received += len(tmp_files_to_chunks[file_index])
-                total += self.file_index_to_no_chunks[file_index]
-            else:
-                total += len(tmp_files_to_chunks[file_index])
-                received += len(tmp_files_to_chunks[file_index])
+
             if file_index not in self.file_index_to_filename:
                 default_name = f"default_name_{file_index}"
                 filename = default_name
@@ -100,11 +90,19 @@ class UdpServer(Server):
             with open(os.path.join(DOWNLOADS_DIR, filename), "wb+") as fd:
                 for chunk in tmp_files_to_chunks[file_index]:
                     fd.write(chunk[1].encode())
+
+    def compute_packages_percent(self):
+        total = 0
+        actual = 0
+        for file_index, expected in self.file_index_to_no_chunks.items():
+            total += expected
+            if file_index not in self.file_index_to_actual_count:
+                continue
+            actual += self.file_index_to_actual_count[file_index]
         if total:
-            self.stats = dict()
-            self.stats["found_procent"] = received / total * 100
+            self.percent = actual * 100 / total
         else:
-            self.stats["found_procent"] = 0
+            self.percent = 0
 
     # @stats_after_run
     def receive(self):
@@ -123,11 +121,21 @@ class UdpServer(Server):
             if result.is_fail:
                 break
             if result.data:
-                bytes_no, msgs_no, should_continue = result.data
+                should_continue = result.data
                 if not should_continue:
                     break
-        end = time.time()
         if self.store:
             self.split_data_per_file()
 
-        self.logger.info(f"Delta time: {end - start}")
+        self.compute_packages_percent()
+
+        decrease_value = 10 if self.decrease_by_timeout else 0
+        json_data = {
+            "delta_time": time.time() - start - decrease_value,
+            "protocol": "udp",
+            "bytes_no": self.bytes_no,
+            "msgs_no": self.msgs_no,
+            "receive_rate": self.percent
+        }
+        json_data_str = json.dumps(json_data)
+        self.logger.info(f"Data: {json_data_str}")

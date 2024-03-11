@@ -32,6 +32,7 @@ def handle_exceptions(func):
     def wrapper(self, *args, **kwargs):
         start_time = time.perf_counter()
         try:
+            self.decrease_by_timeout = True
             return Result(data=func(self, *args, **kwargs), is_success=True)
         except Exception:
             trace = traceback.format_exc()

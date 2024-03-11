@@ -1,3 +1,4 @@
+import json
 import logging
 import os.path
 import time
@@ -5,7 +6,7 @@ from socket import SOCK_STREAM
 
 from server.abstract_server import Server
 from utils.general import HEADERS_SIZE, FINISHED_TRANSMISSION_MSG, DOWNLOADS_DIR
-from utils.stats_helpers import stats_gatherer, stats_after_run
+from utils.stats_helpers import stats_after_run
 from utils.udp_helpers import AckType
 
 
@@ -16,20 +17,14 @@ class TcpServer(Server):
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(TcpServer.__name__)
 
-    @stats_gatherer
     def _receive_file(self, connection):
-        bytes_no = 0
-        msgs_no = 0
         while True:
-            start = time.time()
-
             headers = connection.recv(HEADERS_SIZE)
-            self.logger.info(f"Deltaaaa: {time.time() - start}")
             headers_decoded = headers.decode()
 
             # self.logger.info(f"headers: {headers}")
-            bytes_no += len(headers)
-            msgs_no += 1
+            self.bytes_no += len(headers)
+            self.msgs_no += 1
 
             if self.stop_and_wait:
                 if not headers:
@@ -39,9 +34,9 @@ class TcpServer(Server):
             break
 
         if headers_decoded == FINISHED_TRANSMISSION_MSG:
-            return len(headers_decoded), 1, False
+            return False
 
-        # self.logger.info(f"Headers decoded: {headers_decoded}")
+        self.logger.info(f"Headers decoded: {headers_decoded}")
         filename, file_size, packages_no = headers_decoded.split("\n")
         file_size, packages_no = int(file_size), int(packages_no.rstrip())
 
@@ -64,8 +59,8 @@ class TcpServer(Server):
                     data += data_new
 
                 # self.logger.info(f"Data len: {len(data)}")
-                bytes_no += len(data)
-                msgs_no += 1
+                self.bytes_no += len(data)
+                self.msgs_no += 1
 
                 if self.stop_and_wait:
                     if not data:
@@ -77,10 +72,8 @@ class TcpServer(Server):
                 fd.write(data)
         if self.store:
             fd.close()
-            # self.logger.info(f"Data size received: {len(data)}")
-        return bytes_no, msgs_no, True
+        return True
 
-    @stats_after_run
     def receive(self):
         result = self._bind_wrapper()
         if result.is_fail:
@@ -91,11 +84,16 @@ class TcpServer(Server):
         start = time.time()
         with connection:
             while True:
-                bytes_no, msgs_no, should_continue = self._receive_file(connection)
+                should_continue = self._receive_file(connection)
                 if not should_continue:
                     break
-        end = time.time()
-        self.logger.info(f"Delta time: {end - start}")
 
+        json_data = {
+            "delta_time": time.time() - start,
+            "protocol": "udp",
+            "bytes_no": self.bytes_no,
+            "msgs_no": self.msgs_no,
+        }
+        json_data_str = json.dumps(json_data)
+        self.logger.info(f"Data: {json_data_str}")
         self.socket.close()
-
