@@ -32,9 +32,9 @@ def handle_exceptions(func):
     def wrapper(self, *args, **kwargs):
         start_time = time.perf_counter()
         try:
-            self.decrease_by_timeout = True
             return Result(data=func(self, *args, **kwargs), is_success=True)
         except Exception:
+            self.decrease_by_timeout = True
             trace = traceback.format_exc()
             func_name = inspect.currentframe().f_back.f_code.co_name
             err_msg = f"Something wrong happened in function {func_name} after running {time.perf_counter() - start_time}:\n{trace}"

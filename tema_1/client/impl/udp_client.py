@@ -67,7 +67,7 @@ class UdpClient(Client):
             package = self._build_package(data, kwargs["file_index"], package_index, kwargs["file_size"])
             while True:
                 self.socket.sendto(package, (self.host, self.port))
-                self.bytes_no += len(data)
+                self.bytes_no += len(package)
                 self.msgs_no += 1
 
                 if self.stop_and_wait:

@@ -39,6 +39,7 @@ class UdpResponse:
                 self.data = splitted_data[5]
             else:
                 self.data = splitted_data[1]
+                print("Data: {}".format(self.data))
 
 
 def checksum(encoded_data):

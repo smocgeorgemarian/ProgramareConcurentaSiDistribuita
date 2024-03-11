@@ -28,8 +28,6 @@ class Client:
 
     def _get_samples(self):
         for index, filename in enumerate(os.listdir(self.samples_dir)):
-            if index == 10:
-                break
             yield filename, os.path.join(self.samples_dir, filename)
 
     def _send_file(self, fd, headers, packages_no, **kwargs):

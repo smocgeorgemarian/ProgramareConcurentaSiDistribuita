@@ -16,6 +16,7 @@ class TcpServer(Server):
 
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(TcpServer.__name__)
+        self.store_time = 0
 
     def _receive_file(self, connection):
         while True:
@@ -36,14 +37,15 @@ class TcpServer(Server):
         if headers_decoded == FINISHED_TRANSMISSION_MSG:
             return False
 
-        self.logger.info(f"Headers decoded: {headers_decoded}")
         filename, file_size, packages_no = headers_decoded.split("\n")
         file_size, packages_no = int(file_size), int(packages_no.rstrip())
 
         packages = []
 
         if self.store:
+            start = time.time()
             fd = open(os.path.join(DOWNLOADS_DIR, filename), "wb")
+            self.store_time = time.time() - start
         for package_index in range(packages_no):
             while True:
                 if package_index != packages_no - 1:
@@ -69,9 +71,13 @@ class TcpServer(Server):
                     connection.send(AckType.OK.value.to_bytes(4, "little"))
                 break
             if self.store:
+                start = time.time()
                 fd.write(data)
+                self.store_time = time.time() - start
         if self.store:
+            start = time.time()
             fd.close()
+            self.store_time = time.time() - start
         return True
 
     def receive(self):
@@ -90,9 +96,10 @@ class TcpServer(Server):
 
         json_data = {
             "delta_time": time.time() - start,
-            "protocol": "udp",
+            "protocol": "tcp",
             "bytes_no": self.bytes_no,
             "msgs_no": self.msgs_no,
+            "store": self.store_time
         }
         json_data_str = json.dumps(json_data)
         self.logger.info(f"Data: {json_data_str}")

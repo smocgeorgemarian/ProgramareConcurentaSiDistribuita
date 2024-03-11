@@ -26,7 +26,7 @@ class DataGenerator:
 
     def generate(self):
         with ThreadPoolExecutor(max_workers=10) as tp:
-            for file_index in range(self.files_no):
+            for file_index in range(500, 1000):
                 tp.submit(self.write_file, file_index)
 
         self.logger.info("Done")

@@ -17,13 +17,13 @@ class UdpServer(Server):
 
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(UdpServer.__name__)
-        self.udp_packet_size = package_size + 12 * 4
-        self.logger.info("Test: {}".format(self.udp_packet_size))
+        self.udp_packet_size = package_size + 8 * 4
         self.file_index_to_chunks = {}
         self.file_index_to_filename = {}
         self.file_index_to_no_chunks = {}
         self.file_index_to_actual_count = {}
         self.client_address = None
+        self.store_time = 0
 
     @handle_exceptions
     def _bind_wrapper(self):
@@ -39,7 +39,6 @@ class UdpServer(Server):
             self.msgs_no += 1
 
             response = UdpResponse(data)
-            self.logger.info(data[:-4].decode())
             if response.crc_problem:
                 if self.stop_and_wait:
                     self.socket.sendto(AckType.ERROR.value.to_bytes(4, "little"), self.client_address)
@@ -59,7 +58,7 @@ class UdpServer(Server):
                         self.file_index_to_chunks[response.file_index] = []
                     self.file_index_to_chunks[response.file_index].append((response.package_index, response.data))
 
-            elif response.type == DatagramType.END_MESSAGE:
+            else:
                 should_continue = False
 
             if self.stop_and_wait:
@@ -71,7 +70,7 @@ class UdpServer(Server):
     def split_data_per_file(self):
         self.logger.info(f"Received name for: {len(self.file_index_to_filename)} files")
         self.logger.info(f"Received data for: {len(self.file_index_to_chunks)} files")
-
+        start = time.time()
         tmp_files_to_chunks = {}
         for file_index, chunks in self.file_index_to_chunks.items():
             chunks = sorted(chunks, key=lambda x: x[0])
@@ -90,6 +89,7 @@ class UdpServer(Server):
             with open(os.path.join(DOWNLOADS_DIR, filename), "wb+") as fd:
                 for chunk in tmp_files_to_chunks[file_index]:
                     fd.write(chunk[1].encode())
+        self.store_time = time.time() - start
 
     def compute_packages_percent(self):
         total = 0
@@ -120,7 +120,7 @@ class UdpServer(Server):
                 start = time.time()
             if result.is_fail:
                 break
-            if result.data:
+            if result.data is not None:
                 should_continue = result.data
                 if not should_continue:
                     break
@@ -135,7 +135,8 @@ class UdpServer(Server):
             "protocol": "udp",
             "bytes_no": self.bytes_no,
             "msgs_no": self.msgs_no,
-            "receive_rate": self.percent
+            "receive_rate": self.percent,
+            "store_time": self.store_time
         }
         json_data_str = json.dumps(json_data)
         self.logger.info(f"Data: {json_data_str}")
