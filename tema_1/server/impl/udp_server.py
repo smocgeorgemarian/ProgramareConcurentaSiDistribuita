@@ -56,10 +56,11 @@ class UdpServer(Server):
                 self.file_index_to_filename[response.file_index] = response.filename
 
             elif response.type == DatagramType.CHUNK:
-                if response.file_index not in self.file_index_to_chunks:
-                    self.file_index_to_chunks[response.file_index] = []
-                # self.file_index_to_no_chunks[response.file_index] = response.packages_no
-                # self.file_index_to_chunks[response.file_index].append((response.package_index, response.data))
+                if self.store:
+                    if response.file_index not in self.file_index_to_chunks:
+                        self.file_index_to_chunks[response.file_index] = []
+                        self.file_index_to_no_chunks[response.file_index] = response.packages_no
+                        self.file_index_to_chunks[response.file_index].append((response.package_index, response.data))
 
             elif response.type == DatagramType.END_MESSAGE:
                 should_continue = False
@@ -82,6 +83,8 @@ class UdpServer(Server):
         total = 0
         received = 0
         for file_index in tmp_files_to_chunks:
+            if file_index not in self.file_index_to_no_chunks:
+                continue
             if len(tmp_files_to_chunks[file_index]) != self.file_index_to_no_chunks[file_index]:
                 received += len(tmp_files_to_chunks[file_index])
                 total += self.file_index_to_no_chunks[file_index]
@@ -124,5 +127,7 @@ class UdpServer(Server):
                 if not should_continue:
                     break
         end = time.time()
+        if self.store:
+            self.split_data_per_file()
+
         self.logger.info(f"Delta time: {end - start}")
-        self.split_data_per_file()
